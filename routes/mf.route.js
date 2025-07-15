@@ -1,30 +1,46 @@
 import express from 'express'
 import { fetchAndPrintNAVs } from '../index.js'
+import MutualFund from '../models/mf.model.js'
 const mfRoute = express.Router()
 
 mfRoute.get('/', (req, res) => res.send('Hello from Mutual Funds'))
 
 mfRoute.get('/list-mf', async (req, res) => {
     try {
-        // Extract pagination parameters from query string
         const page = parseInt(req.query.page) || 1
         const limit = parseInt(req.query.limit) || 100
         const search = req.query.search || ''
+        const skip = (page - 1) * limit
 
-        // Validate parameters
-        if (page < 1) {
-            return res
-                .status(400)
-                .json({ error: 'Page must be greater than 0' })
-        }
-        if (limit < 1 || limit > 1000) {
-            return res
-                .status(400)
-                .json({ error: 'Limit must be between 1 and 1000' })
+        const query = {}
+
+        if (search) {
+            const regex = new RegExp(search, 'i') // case-insensitive search
+            query.$or = [
+                { name: regex },
+                { isin: regex },
+                { 'category.assetClass': regex },
+                { 'category.fundType': regex },
+                { 'category.subCategory': regex },
+            ]
         }
 
-        const result = await fetchAndPrintNAVs(page, limit, search)
-        res.json(result)
+        const [data, total] = await Promise.all([
+            MutualFund.find(query).skip(skip).limit(limit),
+            MutualFund.countDocuments(query),
+        ])
+
+        res.json({
+            data,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+                hasNext: skip + limit < total,
+                hasPrev: skip > 0,
+            },
+        })
     } catch (error) {
         console.error('Error fetching mutual funds:', error)
         res.status(500).json({ error: 'Internal server error' })
@@ -45,4 +61,11 @@ mfRoute.get('/stats', async (req, res) => {
     }
 })
 
+mfRoute.get('/insert-mf', async (req, res) => {
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 100
+    const search = req.query.search || ''
+    const result = await fetchAndPrintNAVs(page, limit, search)
+    res.json(result)
+})
 export default mfRoute
