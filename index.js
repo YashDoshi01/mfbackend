@@ -6,7 +6,6 @@ import axios from 'axios'
 import xlsx from 'xlsx'
 const app = express()
 // dotenv.config();
-let temporaryFixedLines = ''
 app.use(express.json())
 app.use('/api/mutualfund', mfRoute)
 
@@ -37,9 +36,6 @@ function buildISINMap() {
         }
     })
 
-    console.log(
-        `Built ISIN map with ${Object.keys(isinMap).length} valid entries`
-    )
     return isinMap
 }
 
@@ -58,7 +54,6 @@ async function fetchAndPrintNAVs(page = 1, limit = 100, search = '') {
         !cacheTimestamp ||
         now - cacheTimestamp > CACHE_DURATION
     ) {
-        console.log('Fetching fresh data from AMFI...')
 
         const response = await axios.get(
             'https://www.amfiindia.com/spages/NAVAll.txt',
@@ -78,9 +73,6 @@ async function fetchAndPrintNAVs(page = 1, limit = 100, search = '') {
                 !line.startsWith('--')
             )
         })
-
-        console.log(lines.join('\n'))
-        temporaryFixedLines = lines.join('\n')
 
         const parsedFunds = []
 
@@ -138,9 +130,6 @@ async function fetchAndPrintNAVs(page = 1, limit = 100, search = '') {
         // Update cache
         cachedFunds = parsedFunds
         cacheTimestamp = now
-        console.log(`Total Parsed Mutual Funds: ${parsedFunds.length}`)
-    } else {
-        console.log('Using cached data...')
     }
 
     // Apply search filter if provided
@@ -186,6 +175,6 @@ app.listen(5000, () => {
     console.log(`Server is running on port 5000`)
 })
 
-export { fetchAndPrintNAVs, temporaryFixedLines }
+export { fetchAndPrintNAVs }
 
 export default app
