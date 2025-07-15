@@ -4,11 +4,13 @@ import mfRoute from './routes/mf.route.js'
 // import dotenv from 'dotenv';
 import axios from 'axios'
 import xlsx from 'xlsx'
+import  insertFundsToMongo  from './util/fundsintomongo.js';
+import connectDB from './db.js';
 const app = express()
 // dotenv.config();
 app.use(express.json())
 app.use('/api/mutualfund', mfRoute)
-
+connectDB();
 function buildISINMap() {
     const workbook = xlsx.readFile('./Model Portfolios_sample.xlsx')
     const sheet = workbook.Sheets['Instruments & Categorise']
@@ -90,6 +92,8 @@ async function fetchAndPrintNAVs(page = 1, limit = 100, search = '') {
             ] = parts
 
             // Find the first valid ISIN from any of the ISIN fields
+            // const navValue = parseFloat(nav);
+            // if (isNaN(navValue)) continue;
             let isin = null
             if (
                 isinDivPayout &&
@@ -106,8 +110,16 @@ async function fetchAndPrintNAVs(page = 1, limit = 100, search = '') {
             }
 
             // Skip if no valid ISIN, NAV, date, or scheme name
-            if (!isin || !nav?.trim() || !date?.trim() || !schemeName?.trim())
-                continue
+            if (
+                !isin ||
+                !nav?.trim() ||
+                nav.trim() === 'N.A.' ||
+                isNaN(parseFloat(nav)) ||
+                !date?.trim() ||
+                !schemeName?.trim()
+              ) {
+                continue;
+              }
 
             // Check if ISIN is in our mapping
             const info = isinMap[isin]
@@ -122,7 +134,7 @@ async function fetchAndPrintNAVs(page = 1, limit = 100, search = '') {
                           subCategory: info.subCategory,
                       }
                     : null, // No category if not in mapping
-                nav: parseFloat(nav),
+                nav: nav,
                 navDate: new Date(date),
             })
         }
@@ -130,6 +142,7 @@ async function fetchAndPrintNAVs(page = 1, limit = 100, search = '') {
         // Update cache
         cachedFunds = parsedFunds
         cacheTimestamp = now
+        await insertFundsToMongo(parsedFunds);
     }
 
     // Apply search filter if provided

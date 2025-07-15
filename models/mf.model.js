@@ -1,12 +1,16 @@
 import mongoose from 'mongoose';
 
-const MutualFundSchema = new mongoose.Schema({
-  schemeCode: String,
-  isin: String,
-  schemeName: String,
-  nav: Number,
-  date: Date
+const mutualFundSchema = new mongoose.Schema({
+    isin: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
+    category: {
+        assetClass: String,
+        fundType: String,
+        subCategory: String
+    },
+    nav: { type: Number },
+    navDate: { type: Date }
 });
 
-const mf = mongoose.model('mf', MutualFundSchema);
-export default mf;
+const MutualFund = mongoose.model('MutualFund', mutualFundSchema);
+export default MutualFund;
