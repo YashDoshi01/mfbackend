@@ -1,15 +1,14 @@
 import express from 'express'
 import mongoose from 'mongoose'
-import mfRoute from './routes/mf.route.js';
+import mfRoute from './routes/mf.route.js'
 // import dotenv from 'dotenv';
 import axios from 'axios'
-import { parse } from 'csv-parse/sync'
 import xlsx from 'xlsx'
 const app = express()
 // dotenv.config();
-
+let temporaryFixedLines = ''
 app.use(express.json())
-app.use('/api/mutualfund', mfRoute);
+app.use('/api/mutualfund', mfRoute)
 
 function buildISINMap() {
     const workbook = xlsx.readFile('./Model Portfolios_sample.xlsx')
@@ -39,72 +38,149 @@ function buildISINMap() {
     return isinMap
 }
 
-async function fetchAndPrintNAVs() {
+// Cache for storing parsed funds to avoid re-parsing on every request
+let cachedFunds = null
+let cacheTimestamp = null
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
+async function fetchAndPrintNAVs(page = 1, limit = 100, search = '') {
     const isinMap = buildISINMap()
 
-    const response = await axios.get(
-        'https://www.amfiindia.com/spages/NAVAll.txt',
-        {
-            headers: {
-                'User-Agent': 'Mozilla/5.0',
-                Accept: 'text/plain',
-            },
-        }
-    )
+    // Check if we need to refresh the cache
+    const now = Date.now()
+    if (
+        !cachedFunds ||
+        !cacheTimestamp ||
+        now - cacheTimestamp > CACHE_DURATION
+    ) {
+        console.log('Fetching fresh data from AMFI...')
 
-    const lines = response.data
-        .split('\n')
-        .filter(
-            (line) =>
+        const response = await axios.get(
+            'https://www.amfiindia.com/spages/NAVAll.txt',
+            {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0',
+                    Accept: 'text/plain',
+                },
+            }
+        )
+
+        const lines = response.data.split('\n').filter((line) => {
+            // Skip empty lines, headers, and separators
+            return (
                 line.trim() !== '' &&
                 !line.startsWith('Scheme Code') &&
                 !line.startsWith('--')
-        )
-        .join('\n')
-
-    const records = parse(lines, {
-        delimiter: ';',
-        columns: [
-            'schemeCode',
-            'isin',
-            'placeholder',
-            'schemeName',
-            'nav',
-            'date',
-        ],
-        skip_empty_lines: true,
-        relax_column_count: true,
-    })
-
-    const parsedFunds = []
-
-    for (const row of records) {
-        const { isin, schemeName, nav, date } = row
-        if (!isin || !isinMap[isin] || !nav || !date) continue
-
-        const info = isinMap[isin]
-
-        parsedFunds.push({
-            isin,
-            name: schemeName.trim(),
-            category: {
-                assetClass: info.assetClass,
-                fundType: info.fundType,
-                subCategory: info.subCategory,
-            },
-            nav: parseFloat(nav),
-            navDate: new Date(date),
+            )
         })
+
+        console.log(lines.join('\n'))
+        temporaryFixedLines = lines.join('\n')
+
+        const parsedFunds = []
+
+        for (const line of lines) {
+            const parts = line.split(';')
+            if (parts.length < 6) continue
+
+            const [
+                schemeCode,
+                isinDivPayout,
+                isinDivReinvestment,
+                schemeName,
+                nav,
+                date,
+            ] = parts
+
+            // Find the first valid ISIN from any of the ISIN fields
+            let isin = null
+            if (
+                isinDivPayout &&
+                isinDivPayout.trim() !== '' &&
+                isinDivPayout !== '-'
+            ) {
+                isin = isinDivPayout.trim()
+            } else if (
+                isinDivReinvestment &&
+                isinDivReinvestment.trim() !== '' &&
+                isinDivReinvestment !== '-'
+            ) {
+                isin = isinDivReinvestment.trim()
+            }
+
+            // Skip if no valid ISIN, NAV, date, or scheme name
+            if (!isin || !nav?.trim() || !date?.trim() || !schemeName?.trim())
+                continue
+
+            // Check if ISIN is in our mapping
+            const info = isinMap[isin]
+
+            parsedFunds.push({
+                isin,
+                name: schemeName.trim(),
+                category: info
+                    ? {
+                          assetClass: info.assetClass,
+                          fundType: info.fundType,
+                          subCategory: info.subCategory,
+                      }
+                    : null, // No category if not in mapping
+                nav: parseFloat(nav),
+                navDate: new Date(date),
+            })
+        }
+
+        // Update cache
+        cachedFunds = parsedFunds
+        cacheTimestamp = now
+        console.log(`Total Parsed Mutual Funds: ${parsedFunds.length}`)
+    } else {
+        console.log('Using cached data...')
     }
-    console.log(`Total Parsed Mutual Funds: ${parsedFunds.length}`)
-    console.dir(parsedFunds, { depth: null, maxArrayLength: 2 })
-    return parsedFunds
+
+    // Apply search filter if provided
+    let filteredFunds = cachedFunds
+    if (search) {
+        const searchLower = search.toLowerCase()
+        filteredFunds = cachedFunds.filter(
+            (fund) =>
+                fund.name.toLowerCase().includes(searchLower) ||
+                fund.isin.toLowerCase().includes(searchLower) ||
+                (fund.category &&
+                    (fund.category.assetClass
+                        ?.toLowerCase()
+                        .includes(searchLower) ||
+                        fund.category.fundType
+                            ?.toLowerCase()
+                            .includes(searchLower) ||
+                        fund.category.subCategory
+                            ?.toLowerCase()
+                            .includes(searchLower)))
+        )
+    }
+
+    // Apply pagination
+    const total = filteredFunds.length
+    const startIndex = (page - 1) * limit
+    const endIndex = startIndex + limit
+    const paginatedFunds = filteredFunds.slice(startIndex, endIndex)
+
+    return {
+        data: paginatedFunds,
+        pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total,
+            totalPages: Math.ceil(total / limit),
+            hasNext: endIndex < total,
+            hasPrev: startIndex > 0,
+        },
+    }
 }
-fetchAndPrintNAVs().catch(console.error)
 app.listen(5000, () => {
     console.log(`Server is running on port 5000`)
 })
 
-export { fetchAndPrintNAVs }
+export { fetchAndPrintNAVs, temporaryFixedLines }
 
 export default app
