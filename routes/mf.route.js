@@ -1,10 +1,8 @@
 import express from 'express'
-import { fetchAndPrintNAVs, temporaryFixedLines } from '../index.js'
+import { fetchAndPrintNAVs } from '../index.js'
 const mfRoute = express.Router()
 
 mfRoute.get('/', (req, res) => res.send('Hello from Mutual Funds'))
-
-mfRoute.get('/fixed-list', (req, res) => res.send(temporaryFixedLines))
 
 mfRoute.get('/list-mf', async (req, res) => {
     try {
