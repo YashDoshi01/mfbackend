@@ -17,24 +17,29 @@ function buildISINMap() {
 
     const isinMap = {}
 
-    rows.forEach((row) => {
+    rows.forEach((row, index) => {
         const isin = row['ISIN Code']?.toString().trim()
         const name = row['Instrument Name']?.toString().trim()
         const aaKey = row['AA Key']?.toString().trim()
 
-        if (isin && name && aaKey) {
-            const [assetClass, fundType, subCategory] = aaKey
-                .split('-')
-                .map((s) => s.trim())
-            isinMap[isin] = {
-                name,
-                assetClass,
-                fundType,
-                subCategory,
+        // Only process rows with valid ISIN codes (Indian ISINs start with INF)
+        if (isin && isin.startsWith('INF') && name && aaKey) {
+            const parts = aaKey.split('-').map((s) => s.trim())
+            if (parts.length >= 3) {
+                const [assetClass, fundType, subCategory] = parts
+                isinMap[isin] = {
+                    name,
+                    assetClass,
+                    fundType,
+                    subCategory,
+                }
             }
         }
     })
 
+    console.log(
+        `Built ISIN map with ${Object.keys(isinMap).length} valid entries`
+    )
     return isinMap
 }
 
