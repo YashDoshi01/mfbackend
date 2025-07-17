@@ -1,9 +1,7 @@
 import express from 'express';
 const mfRoute = express.Router();
+import MutualFund from '../models/mf.model.js'
 
-
-<<<<<<< Updated upstream
-=======
 mfRoute.get('/list-mf', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1
@@ -105,4 +103,3 @@ mfRoute.post('/:fundId/category', async (req, res) => {
   })
   
 export default mfRoute
->>>>>>> Stashed changes

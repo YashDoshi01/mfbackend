@@ -1,21 +1,11 @@
-import mongoose from 'mongoose';
+import mongoose from 'mongoose'
 
-<<<<<<< Updated upstream
-const MutualFundSchema = new mongoose.Schema({
-  schemeCode: String,
-  isin: String,
-  schemeName: String,
-  nav: Number,
-  date: Date
-=======
 const mutualFundSchema = new mongoose.Schema({
-    isin: { type: String, required: true, unique: true },
-    name: { type: String, required: true },
-    category: [{ type: String }],  // <-- now it's a string array
-    nav: { type: Number },
-    navDate: { type: Date }
->>>>>>> Stashed changes
-});
+  name: String,
+  isin: String,
+  nav: Number,
+  navDate: Date,
+  category: [String], // <-- Must be array of string
+})
 
-const mf = mongoose.model('mf', MutualFundSchema);
-export default mf;
+export default mongoose.models.MutualFund || mongoose.model('MutualFund', mutualFundSchema)
