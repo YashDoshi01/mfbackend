@@ -3,7 +3,7 @@ import dotenv from 'dotenv'
 import cron from 'node-cron'
 dotenv.config()
 
-import connectDB from './db.js'
+import connectDB from './config/db.js'
 import mfRoute from './routes/mf.route.js'
 import insertFundsToDB from './util/insertFundsToDB.js'
 import fetchMFData from './util/fetchMFData.js'
@@ -184,7 +184,7 @@ async function startServer() {
             console.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
 
             // Perform initial data load
-            // await performInitialDataLoad()
+            await performInitialDataLoad()
 
             // Start scheduled updates
             await insertFundsAtInterval()

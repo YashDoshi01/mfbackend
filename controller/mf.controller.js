@@ -52,4 +52,42 @@ async function getStats(req, res) {
     }
 }
 
-export { listMutualFunds, getStats }
+async function addCategory(req, res) {
+    try {
+        const { fundId } = req.params
+        const { category } = req.body
+        console.log(req.body.category)
+        if (!category || category.trim() === '') {
+            return res.status(400).json({ error: 'Category is required' })
+        }
+
+        const fund = await MutualFund.findById(fundId)
+        if (!fund) {
+            return res.status(404).json({ error: 'Mutual Fund not found' })
+        }
+
+        if (!fund.categories || fund.categories == null) {
+            fund.categories = []
+        }
+
+        const categoryLower = category.trim().toLowerCase()
+        const exists = fund.categories.some(
+            (c) => c.toLowerCase() === categoryLower
+        )
+
+        if (!exists) {
+            fund.categories.push(categoryLower)
+            await fund.save()
+        }
+
+        res.json({
+            message: 'Category added successfully',
+            fund,
+        })
+    } catch (error) {
+        console.error('Error adding category:', error)
+        res.status(500).json({ error: 'Internal server error' })
+    }
+}
+
+export { listMutualFunds, getStats, addCategory }
