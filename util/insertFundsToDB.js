@@ -63,7 +63,23 @@ export async function upsertMutualFundsInBatches(
                             upsert: true,
                         },
                     })
-                } 
+                } else {
+                    if (
+                        existing.nav !== fund.nav ||
+                        existing.navDate !== fund.navDate
+                    ) {
+                        ops.push({
+                            updateOne: {
+                                filter: { isin: fund.isin },
+                                update: {
+                                    $set: { ...fund },
+                                    $setOnInsert: { createdAt: now },
+                                },
+                                upsert: true,
+                            },
+                        })
+                    }
+                }
             }
 
             if (ops.length > 0) {
