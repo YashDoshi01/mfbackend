@@ -3,7 +3,11 @@ import mongoose from 'mongoose'
 const mutualFundSchema = new mongoose.Schema({
     isin: { type: Object, required: true, unique: true },
     name: { type: String, required: true },
-    categories: [String],
+    categories: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'InstrumentCategory',
+        required: false,
+    },
     nav: { type: Number },
     navDate: { type: Date },
 })

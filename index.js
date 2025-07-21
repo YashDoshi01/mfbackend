@@ -5,12 +5,15 @@ dotenv.config()
 
 import connectDB from './config/db.js'
 import mfRoute from './routes/mf.route.js'
+import categoryRoute from './routes/category.route.js'
 import insertFundsToDB from './util/insertFundsToDB.js'
 import fetchMFData from './util/fetchMFData.js'
+import populateCategories from './helper/categoryInDB.helper.js'
 
 const app = express()
 app.use(express.json())
 app.use('/api/mutualfund', mfRoute)
+app.use('/api/category', categoryRoute)
 
 // Global error tracking
 let consecutiveErrors = 0
@@ -121,14 +124,16 @@ async function performInitialDataLoad() {
             Array.isArray(mutualFundsData) &&
             mutualFundsData.length > 0
         ) {
-            await insertFundsToDB(mutualFundsData)
+            // Promise.all([
+            //     populateCategories(),
+            //     insertFundsToDB(mutualFundsData),
+            // ])
             console.log(
-                `Initial data load completed: ${mutualFundsData.length} funds loaded`
+                `Initial data load completed: ${mutualFundsData.length} funds loaded and categories populated`
             )
         } else {
             console.warn('Initial data load failed - no valid data received')
         }
-
     } catch (error) {
         console.error('Initial data load failed:', error)
     }
