@@ -4,13 +4,20 @@ async function listRoutes(req, res) {
     try {
         const page = parseInt(req.query.page) || 1
         const limit = parseInt(req.query.limit) || 10
+        const search = req.query.search || ''
         const skip = (page - 1) * limit
 
-        const total = await Route.countDocuments()
-        const routes = await Route.find()
-            .sort({ name: 1 })
-            .skip(skip)
-            .limit(limit)
+        const query = {}
+
+        if (search) {
+            const regex = new RegExp(search, 'i') // case-insensitive search
+            query.$or = [{ name: regex }, { assetClass: regex }]
+        }
+
+        const [routes, total] = await Promise.all([
+            Route.find(query).sort({ name: 1 }).skip(skip).limit(limit),
+            Route.countDocuments(query),
+        ])
 
         const totalPages = Math.ceil(total / limit)
 
@@ -57,13 +64,20 @@ async function fetchRoutesByAssetClassId(req, res) {
 
         const page = parseInt(req.query.page) || 1
         const limit = parseInt(req.query.limit) || 10
+        const search = req.query.search || ''
         const skip = (page - 1) * limit
 
-        const total = await Route.countDocuments({ assetClassID: id })
-        const routes = await Route.find({ assetClassID: id })
-            .sort({ name: 1 })
-            .skip(skip)
-            .limit(limit)
+        const query = { assetClassID: id }
+
+        if (search) {
+            const regex = new RegExp(search, 'i')
+            query.$or = [{ name: regex }, { assetClass: regex }]
+        }
+
+        const [routes, total] = await Promise.all([
+            Route.find(query).sort({ name: 1 }).skip(skip).limit(limit),
+            Route.countDocuments(query),
+        ])
 
         if (total === 0) {
             return res
@@ -94,11 +108,9 @@ async function addRoute(req, res) {
     try {
         const { name, assetClass, assetClassID } = req.body
         if (!name || !assetClass || !assetClassID) {
-            return res
-                .status(400)
-                .json({
-                    error: 'Name, asset class, and asset class ID are required',
-                })
+            return res.status(400).json({
+                error: 'Name, asset class, and asset class ID are required',
+            })
         }
         const newRoute = new Route({ name, assetClass, assetClassID })
         await newRoute.save()
@@ -117,11 +129,9 @@ async function updateRoute(req, res) {
         }
         const { name, assetClassID, assetClass } = req.body
         if (!name || !assetClassID || !assetClass) {
-            return res
-                .status(400)
-                .json({
-                    error: 'Name, asset class ID, and asset class are required',
-                })
+            return res.status(400).json({
+                error: 'Name, asset class ID, and asset class are required',
+            })
         }
         const updatedRoute = await Route.findByIdAndUpdate(
             id,

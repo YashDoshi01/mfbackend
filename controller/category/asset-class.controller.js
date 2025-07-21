@@ -4,13 +4,20 @@ async function listAssetClasses(req, res) {
     try {
         const page = parseInt(req.query.page) || 1
         const limit = parseInt(req.query.limit) || 10
+        const search = req.query.search || ''
         const skip = (page - 1) * limit
 
-        const total = await AssetClass.countDocuments()
-        const assetClasses = await AssetClass.find()
-            .sort({ name: 1 })
-            .skip(skip)
-            .limit(limit)
+        const query = {}
+
+        if (search) {
+            const regex = new RegExp(search, 'i') // case-insensitive search
+            query.name = regex
+        }
+
+        const [assetClasses, total] = await Promise.all([
+            AssetClass.find(query).sort({ name: 1 }).skip(skip).limit(limit),
+            AssetClass.countDocuments(query),
+        ])
 
         const totalPages = Math.ceil(total / limit)
 

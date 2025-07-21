@@ -4,13 +4,28 @@ async function listInstrumentCategories(req, res) {
     try {
         const page = parseInt(req.query.page) || 1
         const limit = parseInt(req.query.limit) || 10
+        const search = req.query.search || ''
         const skip = (page - 1) * limit
 
-        const total = await InstrumentCategory.countDocuments()
-        const categories = await InstrumentCategory.find()
-            .sort({ name: 1 })
-            .skip(skip)
-            .limit(limit)
+        const query = {}
+
+        if (search) {
+            const regex = new RegExp(search, 'i') // case-insensitive search
+            query.$or = [
+                { name: regex },
+                { assetClass: regex },
+                { route: regex },
+                { amfiCategory: regex },
+            ]
+        }
+
+        const [categories, total] = await Promise.all([
+            InstrumentCategory.find(query)
+                .sort({ name: 1 })
+                .skip(skip)
+                .limit(limit),
+            InstrumentCategory.countDocuments(query),
+        ])
 
         const totalPages = Math.ceil(total / limit)
 
@@ -59,15 +74,27 @@ async function fetchInstrumentCategoriesByAssetClass(req, res) {
 
         const page = parseInt(req.query.page) || 1
         const limit = parseInt(req.query.limit) || 10
+        const search = req.query.search || ''
         const skip = (page - 1) * limit
 
-        const total = await InstrumentCategory.countDocuments({
-            assetClass: name,
-        })
-        const categories = await InstrumentCategory.find({ assetClass: name })
-            .sort({ name: 1 })
-            .skip(skip)
-            .limit(limit)
+        const query = { assetClass: name }
+
+        if (search) {
+            const regex = new RegExp(search, 'i')
+            query.$or = [
+                { name: regex },
+                { route: regex },
+                { amfiCategory: regex },
+            ]
+        }
+
+        const [categories, total] = await Promise.all([
+            InstrumentCategory.find(query)
+                .sort({ name: 1 })
+                .skip(skip)
+                .limit(limit),
+            InstrumentCategory.countDocuments(query),
+        ])
 
         if (total === 0) {
             return res.status(404).json({ error: 'Categories not found' })
@@ -101,13 +128,28 @@ async function fetchInstrumentCategoriesByRouteId(req, res) {
 
         const page = parseInt(req.query.page) || 1
         const limit = parseInt(req.query.limit) || 10
+        const search = req.query.search || ''
         const skip = (page - 1) * limit
 
-        const total = await InstrumentCategory.countDocuments({ routeID: id })
-        const categories = await InstrumentCategory.find({ routeID: id })
-            .sort({ name: 1 })
-            .skip(skip)
-            .limit(limit)
+        const query = { routeID: id }
+
+        if (search) {
+            const regex = new RegExp(search, 'i')
+            query.$or = [
+                { name: regex },
+                { assetClass: regex },
+                { route: regex },
+                { amfiCategory: regex },
+            ]
+        }
+
+        const [categories, total] = await Promise.all([
+            InstrumentCategory.find(query)
+                .sort({ name: 1 })
+                .skip(skip)
+                .limit(limit),
+            InstrumentCategory.countDocuments(query),
+        ])
 
         if (total === 0) {
             return res.status(404).json({ error: 'Categories not found' })
