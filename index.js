@@ -2,6 +2,7 @@ import express from 'express'
 import dotenv from 'dotenv'
 import cron from 'node-cron'
 import mongoose from 'mongoose'
+import cors from 'cors'
 dotenv.config()
 
 import connectDB from './config/db.js'
@@ -13,6 +14,17 @@ import fetchMFData from './util/fetchMFData.js'
 import populateCategories from './helper/categoryInDB.helper.js'
 
 const app = express()
+
+// CORS configuration
+const corsOptions = {
+    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    credentials: true,
+    optionsSuccessStatus: 200,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}
+
+app.use(cors(corsOptions))
 app.use(express.json())
 app.use('/api/mutualfund', mfRoute)
 app.use('/api/category', categoryRoute)
