@@ -24,3 +24,13 @@ export {
     updateAssetClass,
     deleteAssetClass,
 } from './asset-class.controller.js'
+
+export {
+    listAmfiCategories,
+    getAmfiCategoryById,
+    addAmfiCategory,
+    updateAmfiCategoryStatus,
+    linkInstrumentCategoryToAmfiCategory,
+    updateAmfiCategory,
+    deleteAmfiCategory
+} from './amfi-category.controller.js'

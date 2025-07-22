@@ -1,30 +1,152 @@
-import { AmfiCategory } from '../../models/category.model.js'
+import {
+    AmfiCategory,
+    InstrumentCategory,
+} from '../../models/category.model.js'
 
-async function listAmfiCategories() {
+async function listAmfiCategories(req, res) {
     try {
-        const categories = await AmfiCategory.find().sort({ name: 1 })
-        return categories
+        const page = parseInt(req.query.page) || 1
+        const limit = parseInt(req.query.limit) || 10
+        const search = req.query.search || ''
+        const skip = (page - 1) * limit
+
+        let pipeline = []
+
+        if (search) {
+            const regex = new RegExp(search, 'i')
+
+            // Use aggregation pipeline to search category name, mutual fund names, and ISIN
+            pipeline = [
+                {
+                    $lookup: {
+                        from: 'mutualfunds',
+                        localField: '_id',
+                        foreignField: 'amfiCategory',
+                        as: 'mutualFunds',
+                    },
+                },
+                {
+                    $match: {
+                        $or: [
+                            { name: regex }, // Search in AMFI category name
+                            { 'mutualFunds.name': regex }, // Search in mutual fund names
+                            { 'mutualFunds.isin': regex }, // Search in ISIN numbers
+                        ],
+                    },
+                },
+                {
+                    $project: {
+                        _id: 1,
+                        name: 1,
+                        status: 1,
+                        instrumentCategorySchema: 1,
+                        fundCount: { $size: '$mutualFunds' }, // Optional: include fund count
+                    },
+                },
+                { $sort: { name: 1 } },
+                { $skip: skip },
+                { $limit: limit },
+            ]
+        } else {
+            // No search, use simple find
+            pipeline = [
+                {
+                    $lookup: {
+                        from: 'mutualfunds',
+                        localField: '_id',
+                        foreignField: 'amfiCategory',
+                        as: 'mutualFunds',
+                    },
+                },
+                {
+                    $project: {
+                        _id: 1,
+                        name: 1,
+                        status: 1,
+                        instrumentCategorySchema: 1,
+                        fundCount: { $size: '$mutualFunds' },
+                    },
+                },
+                { $sort: { name: 1 } },
+                { $skip: skip },
+                { $limit: limit },
+            ]
+        }
+
+        // Get total count for pagination
+        let countPipeline = []
+        if (search) {
+            const regex = new RegExp(search, 'i')
+            countPipeline = [
+                {
+                    $lookup: {
+                        from: 'mutualfunds',
+                        localField: '_id',
+                        foreignField: 'amfiCategory',
+                        as: 'mutualFunds',
+                    },
+                },
+                {
+                    $match: {
+                        $or: [
+                            { name: regex },
+                            { 'mutualFunds.name': regex },
+                            { 'mutualFunds.isin': regex },
+                        ],
+                    },
+                },
+                { $count: 'total' },
+            ]
+        } else {
+            countPipeline = [{ $count: 'total' }]
+        }
+
+        const [categories, totalResult] = await Promise.all([
+            AmfiCategory.aggregate(pipeline),
+            AmfiCategory.aggregate(countPipeline),
+        ])
+
+        const total = totalResult.length > 0 ? totalResult[0].total : 0
+        const totalPages = Math.ceil(total / limit)
+
+        res.status(200).json({
+            categories,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalItems: total,
+                itemsPerPage: limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            },
+        })
     } catch (error) {
-        console.error('Error fetching AMFI categories:', error)
-        throw error
+        res.status(500).json({ error: 'Internal server error' })
     }
 }
 
-async function getAmfiCategoryById(id) {
+async function getAmfiCategoryById(req, res) {
     try {
+        const { id } = req.params
+        if (!id) {
+            throw new Error('AMFI Category ID is required')
+        }
         const category = await AmfiCategory.findById(id)
         if (!category) {
             throw new Error('AMFI Category not found')
         }
-        return category
+        res.status(200).json(category)
     } catch (error) {
-        console.error('Error fetching AMFI category by ID:', error)
-        throw error
+        res.status(500).json({ error: 'Internal server error' })
     }
 }
 
-async function addAmfiCategory(name) {
+async function addAmfiCategory(req, res) {
     try {
+        const { name } = req.body
+        if (!name) {
+            throw new Error('AMFI Category name is required')
+        }
         const existingCategory = await AmfiCategory.findOne({ name })
         if (existingCategory) {
             throw new Error('AMFI Category already exists')
@@ -32,68 +154,109 @@ async function addAmfiCategory(name) {
 
         const newCategory = new AmfiCategory({ name })
         await newCategory.save()
-        console.log(`✅ Created AMFI Category: ${name}`)
-        return newCategory
+        res.status(201).json(newCategory)
     } catch (error) {
-        console.error('Error adding AMFI category:', error)
-        throw error
+        res.status(500).json({ error: 'Internal server error' })
     }
 }
 
-async function updateAmfiCategoryStatus(categoryId, status) {
+async function updateAmfiCategoryStatus(req, res) {
     try {
+        const { categoryId, status } = req.body
+        if (!categoryId || !status) {
+            throw new Error('Category ID and status are required')
+        }
         if (!['set', 'unset'].includes(status)) {
             throw new Error('Status must be either "set" or "unset"')
         }
-
         const updatedCategory = await AmfiCategory.findByIdAndUpdate(
             categoryId,
             { status },
-            { new: true, runValidators: true }
+            { new: true }
         )
-
         if (!updatedCategory) {
             throw new Error('AMFI Category not found')
         }
-
-        console.log(
-            `✅ Updated AMFI Category status: ${updatedCategory.name} -> ${status}`
-        )
-        return updatedCategory
+        res.status(200).json(updatedCategory)
     } catch (error) {
-        console.error('Error updating AMFI category status:', error)
-        throw error
+        res.status(500).json({ error: 'Internal server error' })
     }
 }
 
-async function updateAmfiCategory(id, name) {
+async function linkInstrumentCategoryToAmfiCategory(req, res) {
+    try {
+        const { instrumentCategoryId, amfiCategoryId } = req.body
+        if (!instrumentCategoryId || !amfiCategoryId) {
+            throw new Error(
+                'Instrument Category ID and AMFI Category ID are required'
+            )
+        }
+        const instrumentCategory = await InstrumentCategory.findById(
+            instrumentCategoryId
+        )
+        if (!instrumentCategory) {
+            throw new Error('Instrument Category not found')
+        }
+
+        const amfiCategory = await AmfiCategory.findById(amfiCategoryId)
+        if (!amfiCategory) {
+            throw new Error('AMFI Category not found')
+        }
+
+        instrumentCategory.amfiCategory = amfiCategory._id
+        instrumentCategory.status = 'set'
+        await instrumentCategory.save()
+        res.status(200).json({
+            message: 'Instrument Category linked to AMFI Category successfully',
+        })
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' })
+    }
+}
+
+async function updateAmfiCategory(req, res) {
+    const { id, name } = req.body
+    if (!id || !name) {
+        return res.status(400).json({ error: 'ID and name are required' })
+    }
     try {
         const updatedCategory = await AmfiCategory.findByIdAndUpdate(
             id,
-            { name , status: 'unset' }, 
-            { new: true, runValidators: true }
+            { name, status: 'unset' },
+            { new: true }
         )
         if (!updatedCategory) {
             throw new Error('AMFI Category not found')
         }
-        console.log(`✅ Updated AMFI Category: ${updatedCategory.name}`)
-        return updatedCategory
+        res.status(200).json(updatedCategory)
     } catch (error) {
         console.error('Error updating AMFI category:', error)
-        throw error
+        res.status(500).json({ error: 'Internal server error' })
     }
 }
 
-async function deleteAmfiCategory(id) {
+async function deleteAmfiCategory(req, res) {
+    const { id } = req.params
+    if (!id) {
+        return res.status(400).json({ error: 'ID is required' })
+    }
     try {
         const deletedCategory = await AmfiCategory.findByIdAndDelete(id)
         if (!deletedCategory) {
             throw new Error('AMFI Category not found')
         }
-        console.log(`✅ Deleted AMFI Category: ${deletedCategory.name}`)
-        return deletedCategory
+        res.status(200).json({ message: 'AMFI Category deleted successfully' })
     } catch (error) {
-        console.error('Error deleting AMFI category:', error)
-        throw error
+        res.status(500).json({ error: 'Internal server error' })
     }
+}
+
+export {
+    listAmfiCategories,
+    getAmfiCategoryById,
+    addAmfiCategory,
+    updateAmfiCategoryStatus,
+    linkInstrumentCategoryToAmfiCategory,
+    updateAmfiCategory,
+    deleteAmfiCategory,
 }

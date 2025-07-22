@@ -251,14 +251,21 @@ async function populateCategories() {
                     })
 
                     if (!existingCategory) {
-                        const newCategory = new InstrumentCategory({
+                        const newCategoryData = {
                             name: category.name,
                             amfiCategory: category.amfiCategory,
                             assetClass: category.assetClassName,
                             route: category.routeName,
                             routeID: routeID,
-                            range: category.range,
-                        })
+                        }
+
+                        // Only add range if it exists and is properly defined
+                        if (category.range && typeof category.range === 'object' && 
+                            (typeof category.range.min === 'number' || typeof category.range.max === 'number')) {
+                            newCategoryData.range = category.range
+                        }
+
+                        const newCategory = new InstrumentCategory(newCategoryData)
                         await newCategory.save()
                         console.log(
                             `✅ Created Instrument Category: ${category.name} (${category.routeName} - ${category.assetClassName})`

@@ -37,13 +37,17 @@ export async function upsertMutualFundsInBatches(
             const isins = chunk.map((fund) => fund.isin)
             const existingDocs = await MutualFund.find(
                 { isin: { $in: isins } },
-                { isin: 1, nav: 1, navDate: 1 }
+                { isin: 1, nav: 1, navDate: 1, amfiCategory: 1 }
             ).lean()
 
             const existingMap = new Map(
                 existingDocs.map((doc) => [
                     doc.isin,
-                    { nav: doc.nav, navDate: doc.navDate },
+                    {
+                        nav: doc.nav,
+                        navDate: doc.navDate,
+                        amfiCategory: doc.amfiCategory,
+                    },
                 ])
             )
 
@@ -57,25 +61,28 @@ export async function upsertMutualFundsInBatches(
                         updateOne: {
                             filter: { isin: fund.isin },
                             update: {
-                                $set: { ...fund },
+                                $set: { ...fund, updatedAt: now },
                                 $setOnInsert: { createdAt: now },
                             },
                             upsert: true,
                         },
                     })
                 } else {
-                    if (
+                    // Check if any field has changed
+                    const hasChanges =
                         existing.nav !== fund.nav ||
-                        existing.navDate !== fund.navDate
-                    ) {
+                        existing.navDate?.getTime() !==
+                            fund.navDate?.getTime() ||
+                        existing.amfiCategory?.toString() !==
+                            fund.amfiCategory?.toString()
+
+                    if (hasChanges) {
                         ops.push({
                             updateOne: {
                                 filter: { isin: fund.isin },
                                 update: {
-                                    $set: { ...fund },
-                                    $setOnInsert: { createdAt: now },
+                                    $set: { ...fund, updatedAt: now },
                                 },
-                                upsert: true,
                             },
                         })
                     }
@@ -89,14 +96,11 @@ export async function upsertMutualFundsInBatches(
                         writeConcern: { w: 'majority' },
                     })
 
+                    console.log(
+                        `Batch processed: ${res.upsertedCount} inserted, ${res.modifiedCount} updated`
+                    )
                 } catch (error) {
                     console.error('BulkWrite error:', error)
-                    console.error('Error details:', {
-                        name: error.name,
-                        message: error.message,
-                        code: error.code,
-                        writeErrors: error.writeErrors,
-                    })
                     throw error
                 }
             } else {

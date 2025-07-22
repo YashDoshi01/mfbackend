@@ -31,24 +31,6 @@ const amfiCategorySchema = new mongoose.Schema({
     status: { type: String, enum: ['set', 'unset'], default: 'unset' },
 })
 
-const validateRange = (range) => {
-    if (range && (typeof range.min !== 'number' || typeof range.max !== 'number')) {
-        throw new Error('Range must contain numeric min and max values')
-    }
-    if (range && range.min > range.max) {
-        throw new Error('Min value cannot be greater than max value')
-    }
-}
-
-instrumentCategorySchema.pre('save', function (next) {
-    try {
-        validateRange(this.range)
-        next()
-    } catch (error) {
-        next(error)
-    }
-})
-
 const AssetClass = mongoose.model('AssetClass', assetClassSchema)
 const Route = mongoose.model('Route', routeSchema)
 const InstrumentCategory = mongoose.model(

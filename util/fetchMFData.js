@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { AmfiCategory } from '../models/category.model.js'
 
 async function fetchMFData() {
     try {
@@ -25,17 +26,52 @@ async function fetchMFData() {
         const amfiCategoryRegex = /\S.*?Schemes\([^)]*\)/
         const parsedFunds = []
 
+        // Track current category
+        let currentAmfiCategory = null
+        let currentAmfiCategoryId = null
+
+        // Create a map to store category name to ID mapping
+        const categoryMap = new Map()
+
         for (const line of lines) {
-            const parts = line.split(';')
-            if (parts.length < 6) {
-                if (amfiCategoryRegex.test(line)) {
-                    const categoryMatch = line.match(amfiCategoryRegex)
-                    if (categoryMatch) {
-                        amfiCategories.push(categoryMatch[0].trim())
+            // Check if this line is a category header
+            if (amfiCategoryRegex.test(line)) {
+                const categoryMatch = line.match(amfiCategoryRegex)
+                if (categoryMatch) {
+                    currentAmfiCategory = categoryMatch[0].trim()
+                    amfiCategories.push(currentAmfiCategory)
+
+                    // Find or create the category in database to get its ID
+                    try {
+                        let category = await AmfiCategory.findOne({
+                            name: currentAmfiCategory,
+                        })
+                        if (!category) {
+                            category = new AmfiCategory({
+                                name: currentAmfiCategory,
+                                status: 'unset',
+                            })
+                            await category.save()
+                        }
+                        currentAmfiCategoryId = category._id
+                        categoryMap.set(
+                            currentAmfiCategory,
+                            currentAmfiCategoryId
+                        )
+                    } catch (error) {
+                        console.error(
+                            `Error handling category ${currentAmfiCategory}:`,
+                            error
+                        )
+                        currentAmfiCategoryId = null
                     }
                 }
                 continue
             }
+
+            // Process fund data
+            const parts = line.split(';')
+            if (parts.length < 6) continue
 
             const [
                 _schemeCode,
@@ -82,15 +118,17 @@ async function fetchMFData() {
                 name: schemeName.trim(),
                 nav: parseFloat(nav),
                 navDate: new Date(date),
+                amfiCategory: currentAmfiCategoryId,
+                amfiCategoryName: currentAmfiCategory,
             }
-
-            fundEntry.category = null
 
             parsedFunds.push(fundEntry)
         }
-        console.log(`  - Total funds parsed: ${parsedFunds.length}`)
 
-        return { parsedFunds, amfiCategories }
+        console.log(`  - Total funds parsed: ${parsedFunds.length}`)
+        console.log(`  - Total categories found: ${amfiCategories.length}`)
+
+        return { parsedFunds, amfiCategories, categoryMap }
     } catch (error) {
         console.error('Error fetching MF data:', error)
 
@@ -100,7 +138,7 @@ async function fetchMFData() {
             console.error(`HTTP Error: ${error.response.status}`)
         }
 
-        return []
+        return { parsedFunds: [], amfiCategories: [], categoryMap: new Map() }
     }
 }
 

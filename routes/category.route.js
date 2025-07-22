@@ -19,6 +19,13 @@ import {
     fetchInstrumentCategoriesByRouteId,
     updateInstrumentCategory,
     deleteInstrumentCategory,
+    listAmfiCategories,
+    getAmfiCategoryById,
+    addAmfiCategory,
+    updateAmfiCategoryStatus,
+    linkInstrumentCategoryToAmfiCategory,
+    updateAmfiCategory,
+    deleteAmfiCategory
 } from '../controller/category/index.js'
 
 const categoryRoute = express.Router()
@@ -48,5 +55,14 @@ categoryRoute.get('/instrument-categories/route/:id', fetchInstrumentCategoriesB
 categoryRoute.post('/add-instrument-category', addInstrumentCategory)
 categoryRoute.put('/update-instrument-category/:id', updateInstrumentCategory)
 categoryRoute.delete('/delete-instrument-category/:id', deleteInstrumentCategory)
+
+categoryRoute.get('/list-amfi-categories', listAmfiCategories)
+categoryRoute.get('/amfi-categories/:id', getAmfiCategoryById)
+categoryRoute.post('/add-amfi-category', addAmfiCategory)
+categoryRoute.put('/update-amfi-category/:id', updateAmfiCategory)
+categoryRoute.put('/update-amfi-category-status/:id', updateAmfiCategoryStatus)
+categoryRoute.put('/link-instrument-category-to-amfi-category', linkInstrumentCategoryToAmfiCategory)
+categoryRoute.delete('/delete-amfi-category/:id', deleteAmfiCategory)
+
 
 export default categoryRoute

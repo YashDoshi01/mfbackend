@@ -126,13 +126,17 @@ async function performInitialDataLoad() {
             Array.isArray(mutualFundsData) &&
             mutualFundsData.length > 0
         ) {
-            Promise.all([
+            // First populate the basic categories and AMFI categories
+            await Promise.all([
                 populateCategories(),
                 insertAmfiCategories(amfiCategories),
-                insertFundsToDB(mutualFundsData),
             ])
+
+            // Then insert the funds with their category references
+            await insertFundsToDB(mutualFundsData)
+
             console.log(
-                `Initial data load completed: ${mutualFundsData.length} funds loaded and categories populated`
+                `Initial data load completed: ${mutualFundsData.length} funds loaded with category assignments`
             )
         } else {
             console.warn('Initial data load failed - no valid data received')
