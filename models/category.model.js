@@ -10,7 +10,6 @@ const routeSchema = new mongoose.Schema({
     assetClassID: { type: mongoose.Schema.Types.ObjectId, ref: 'AssetClass' },
 })
 
-// Asset Class and Route Name should be added to the InstrumentCategory model
 const instrumentCategorySchema = new mongoose.Schema({
     name: { type: String, required: true, unique: false },
     assetClass: { type: String, required: false },
@@ -23,11 +22,39 @@ const instrumentCategorySchema = new mongoose.Schema({
     },
 })
 
+const amfiCategorySchema = new mongoose.Schema({
+    name: { type: String, required: true, unique: true },
+    instrumentCategorySchema: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'InstrumentCategory',
+    },
+    status: { type: String, enum: ['set', 'unset'], default: 'unset' },
+})
+
+const validateRange = (range) => {
+    if (range && (typeof range.min !== 'number' || typeof range.max !== 'number')) {
+        throw new Error('Range must contain numeric min and max values')
+    }
+    if (range && range.min > range.max) {
+        throw new Error('Min value cannot be greater than max value')
+    }
+}
+
+instrumentCategorySchema.pre('save', function (next) {
+    try {
+        validateRange(this.range)
+        next()
+    } catch (error) {
+        next(error)
+    }
+})
+
 const AssetClass = mongoose.model('AssetClass', assetClassSchema)
 const Route = mongoose.model('Route', routeSchema)
 const InstrumentCategory = mongoose.model(
     'InstrumentCategory',
     instrumentCategorySchema
 )
+const AmfiCategory = mongoose.model('AmfiCategory', amfiCategorySchema)
 
-export { AssetClass, Route, InstrumentCategory }
+export { AssetClass, Route, InstrumentCategory, AmfiCategory }

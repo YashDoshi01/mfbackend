@@ -8,6 +8,11 @@ const mutualFundSchema = new mongoose.Schema({
         ref: 'InstrumentCategory',
         required: false,
     },
+    amfiCategory: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'AmfiCategory',
+        required: false,
+    },
     nav: { type: Number },
     navDate: { type: Date },
 })

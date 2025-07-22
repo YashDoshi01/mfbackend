@@ -7,6 +7,7 @@ import connectDB from './config/db.js'
 import mfRoute from './routes/mf.route.js'
 import categoryRoute from './routes/category.route.js'
 import insertFundsToDB from './util/insertFundsToDB.js'
+import insertAmfiCategories from './util/insertCategoryToDB.js'
 import fetchMFData from './util/fetchMFData.js'
 import populateCategories from './helper/categoryInDB.helper.js'
 
@@ -117,17 +118,19 @@ async function performInitialDataLoad() {
     try {
         console.log('Performing initial data load...')
 
-        const mutualFundsData = await fetchMFData()
+        const { parsedFunds: mutualFundsData, amfiCategories } =
+            await fetchMFData()
 
         if (
             mutualFundsData &&
             Array.isArray(mutualFundsData) &&
             mutualFundsData.length > 0
         ) {
-            // Promise.all([
-            //     populateCategories(),
-            //     insertFundsToDB(mutualFundsData),
-            // ])
+            Promise.all([
+                populateCategories(),
+                insertAmfiCategories(amfiCategories),
+                insertFundsToDB(mutualFundsData),
+            ])
             console.log(
                 `Initial data load completed: ${mutualFundsData.length} funds loaded and categories populated`
             )

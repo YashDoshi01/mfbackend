@@ -10,7 +10,7 @@ async function listAssetClasses(req, res) {
         const query = {}
 
         if (search) {
-            const regex = new RegExp(search, 'i') // case-insensitive search
+            const regex = new RegExp(search, 'i')
             query.name = regex
         }
 

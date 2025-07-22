@@ -21,11 +21,19 @@ async function fetchMFData() {
             )
         })
 
+        const amfiCategories = []
+        const amfiCategoryRegex = /\S.*?Schemes\([^)]*\)/
         const parsedFunds = []
 
         for (const line of lines) {
             const parts = line.split(';')
             if (parts.length < 6) {
+                if (amfiCategoryRegex.test(line)) {
+                    const categoryMatch = line.match(amfiCategoryRegex)
+                    if (categoryMatch) {
+                        amfiCategories.push(categoryMatch[0].trim())
+                    }
+                }
                 continue
             }
 
@@ -82,7 +90,7 @@ async function fetchMFData() {
         }
         console.log(`  - Total funds parsed: ${parsedFunds.length}`)
 
-        return parsedFunds
+        return { parsedFunds, amfiCategories }
     } catch (error) {
         console.error('Error fetching MF data:', error)
 
