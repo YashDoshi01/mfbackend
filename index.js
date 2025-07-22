@@ -1,6 +1,7 @@
 import express from 'express'
 import dotenv from 'dotenv'
 import cron from 'node-cron'
+import mongoose from 'mongoose'
 dotenv.config()
 
 import connectDB from './config/db.js'
@@ -32,9 +33,31 @@ async function initializeDatabase() {
     }
 }
 
+async function closeAllConnections() {
+    try {
+        // Close all mongoose connections
+        await mongoose.connection.close()
+        console.log('All database connections closed')
+    } catch (error) {
+        console.error('Error closing database connections:', error)
+    }
+}
+
+async function establishFinalConnection() {
+    try {
+        // Establish the final optimized connection
+        await mongoose.connect(process.env.MONGODB_URI)
+        console.log('Final optimized database connection established')
+        return true
+    } catch (error) {
+        console.error('Failed to establish final connection:', error)
+        return false
+    }
+}
+
 async function insertFundsAtInterval() {
     // Validate environment variables
-    const schedule = process.env.SCHEDULE || '0 9 * * *' // Default: 9 AM daily
+    let schedule = process.env.SCHEDULE || '0 9 * * *' // Default: 9 AM daily
 
     if (!cron.validate(schedule)) {
         console.error(`Invalid cron schedule: ${schedule}`)
@@ -50,15 +73,12 @@ async function insertFundsAtInterval() {
             try {
                 console.log('Starting scheduled mutual funds data fetch...')
 
-                const mutualFundsData = await fetchMFData()
+                const { parsedFunds: mutualFundsData, amfiCategories } =
+                    await fetchMFData()
 
                 // Validate fetched data
-                if (!mutualFundsData) {
-                    throw new Error('fetchMFData returned null or undefined')
-                }
-
-                if (!Array.isArray(mutualFundsData)) {
-                    throw new Error('fetchMFData did not return an array')
+                if (!mutualFundsData || !Array.isArray(mutualFundsData)) {
+                    throw new Error('fetchMFData did not return valid data')
                 }
 
                 if (mutualFundsData.length === 0) {
@@ -70,7 +90,11 @@ async function insertFundsAtInterval() {
 
                 console.log(`Fetched ${mutualFundsData.length} mutual funds`)
 
-                const result = await insertFundsToDB(mutualFundsData)
+                // Process both funds and categories
+                await Promise.all([
+                    insertFundsToDB(mutualFundsData),
+                    insertAmfiCategories(amfiCategories),
+                ])
 
                 // Reset error counter on success
                 consecutiveErrors = 0
@@ -78,8 +102,6 @@ async function insertFundsAtInterval() {
                 console.log(
                     'Successfully completed scheduled mutual funds data update'
                 )
-
-                return result
             } catch (error) {
                 consecutiveErrors++
                 console.error(
@@ -113,7 +135,7 @@ async function insertFundsAtInterval() {
     return cronJob
 }
 
-// Initial data load function
+// Initial data load function with connection management
 async function performInitialDataLoad() {
     try {
         console.log('Performing initial data load...')
@@ -126,14 +148,12 @@ async function performInitialDataLoad() {
             Array.isArray(mutualFundsData) &&
             mutualFundsData.length > 0
         ) {
-            // First populate the basic categories and AMFI categories
+            // Process all data in parallel during startup
             await Promise.all([
                 populateCategories(),
                 insertAmfiCategories(amfiCategories),
+                insertFundsToDB(mutualFundsData),
             ])
-
-            // Then insert the funds with their category references
-            await insertFundsToDB(mutualFundsData)
 
             console.log(
                 `Initial data load completed: ${mutualFundsData.length} funds loaded with category assignments`
@@ -152,6 +172,7 @@ process.on('SIGTERM', () => {
         cronJob.stop()
         console.log('Cron job stopped')
     }
+    mongoose.connection.close()
     process.exit(0)
 })
 
@@ -161,6 +182,7 @@ process.on('SIGINT', () => {
         cronJob.stop()
         console.log('Cron job stopped')
     }
+    mongoose.connection.close()
     process.exit(0)
 })
 
@@ -171,6 +193,8 @@ app.get('/api/mutualfund/health', (req, res) => {
         timestamp: new Date().toISOString(),
         cronJobActive: cronJob ? cronJob.getStatus() : 'not initialized',
         consecutiveErrors,
+        dbConnection:
+            mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
         environment: {
             schedule: process.env.SCHEDULE || '0 9 * * *',
             timezone: process.env.TIMEZONE || 'Asia/Kolkata',
@@ -178,11 +202,12 @@ app.get('/api/mutualfund/health', (req, res) => {
     })
 })
 
-// Start server with proper initialization
+// Start server with proper initialization and connection management
 async function startServer() {
     const port = process.env.PORT || 5000
 
     try {
+        // Initial database connection for setup
         const dbConnected = await initializeDatabase()
 
         if (!dbConnected) {
@@ -190,18 +215,41 @@ async function startServer() {
             process.exit(1)
         }
 
+        // Perform initial data load with existing connection
+        await performInitialDataLoad()
+
+        // Close all connections after startup
+        console.log('Closing startup connections...')
+        await closeAllConnections()
+
+        // Wait a moment for connections to fully close
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // Establish final optimized connection
+        const finalConnected = await establishFinalConnection()
+
+        if (!finalConnected) {
+            console.error('Cannot establish final database connection')
+            process.exit(1)
+        }
+
+        // Force garbage collection if available
+        if (global.gc) {
+            global.gc()
+            console.log('Garbage collection triggered after startup')
+        }
+
         // Start the server
         app.listen(port, async () => {
             console.log(`Server is running on port ${port}`)
             console.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
 
-            // Perform initial data load
-            await performInitialDataLoad()
-
             // Start scheduled updates
             await insertFundsAtInterval()
 
-            console.log('Server initialization completed')
+            console.log(
+                'Server initialization completed with optimized connection'
+            )
         })
     } catch (error) {
         console.error('Failed to start server:', error)
