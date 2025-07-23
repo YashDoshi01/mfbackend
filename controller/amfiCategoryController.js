@@ -1,7 +1,4 @@
-import {
-    AmfiCategory,
-    InstrumentCategory,
-} from '../../models/category.model.js'
+import { AmfiCategory, InstrumentCategory } from '../models/categoryModels.js'
 
 async function listAmfiCategories(req, res) {
     try {
@@ -130,12 +127,10 @@ async function listAmfiCategories(req, res) {
     }
 }
 
-
-
 async function allAmfiCategories(req, res) {
     try {
         const search = req.query.search || ''
-        
+
         let pipeline = []
 
         if (search) {
@@ -197,14 +192,15 @@ async function allAmfiCategories(req, res) {
             ]
         }
 
-        const categories = await AmfiCategory.aggregate(pipeline, { allowDiskUse: true })
+        const categories = await AmfiCategory.aggregate(pipeline, {
+            allowDiskUse: true,
+        })
         res.status(200).json(categories)
     } catch (error) {
         console.error('Error fetching all AMFI categories:', error)
         res.status(500).json({ error: 'Internal server error' })
     }
 }
-
 
 async function getAmfiCategoryById(req, res) {
     try {

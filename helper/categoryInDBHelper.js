@@ -2,7 +2,7 @@ import {
     AssetClass,
     Route,
     InstrumentCategory,
-} from '../models/category.model.js'
+} from '../models/categoryModels.js'
 // Define your data objects here
 const ASSET_CLASSES = [
     { name: 'Equity' },

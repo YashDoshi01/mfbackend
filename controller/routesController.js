@@ -1,4 +1,4 @@
-import { Route, AssetClass } from '../../models/category.model.js'
+import { Route, AssetClass } from '../models/categoryModels.js'
 
 async function listRoutes(req, res) {
     try {

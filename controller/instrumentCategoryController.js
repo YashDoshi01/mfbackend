@@ -1,7 +1,4 @@
-import {
-    InstrumentCategory,
-    AmfiCategory,
-} from '../../models/category.model.js'
+import { InstrumentCategory, AmfiCategory } from '../models/categoryModels.js'
 
 async function allInstrumentCategories(req, res) {
     try {
@@ -333,5 +330,5 @@ export {
     fetchInstrumentCategoriesByRouteId,
     updateInstrumentCategory,
     deleteInstrumentCategory,
-    allInstrumentCategories
+    allInstrumentCategories,
 }

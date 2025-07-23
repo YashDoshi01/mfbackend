@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { AmfiCategory } from '../models/category.model.js'
+import { AmfiCategory } from '../models/categoryModels.js'
 
 async function fetchMFData() {
     try {

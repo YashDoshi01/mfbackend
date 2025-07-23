@@ -1,4 +1,4 @@
-import { AmfiCategory } from '../models/category.model.js'
+import { AmfiCategory } from '../models/categoryModels.js'
 
 async function insertAmfiCategories(amfiCategories) {
     try {
@@ -16,21 +16,30 @@ async function insertAmfiCategories(amfiCategories) {
         // Process categories one by one to handle duplicates properly
         for (const categoryName of amfiCategories) {
             try {
-                if (!categoryName || typeof categoryName !== 'string' || categoryName.trim() === '') {
-                    console.warn('Skipping invalid category name:', categoryName)
+                if (
+                    !categoryName ||
+                    typeof categoryName !== 'string' ||
+                    categoryName.trim() === ''
+                ) {
+                    console.warn(
+                        'Skipping invalid category name:',
+                        categoryName
+                    )
                     continue
                 }
 
                 const trimmedName = categoryName.trim()
 
                 // Check if category already exists
-                const existingCategory = await AmfiCategory.findOne({ name: trimmedName })
+                const existingCategory = await AmfiCategory.findOne({
+                    name: trimmedName,
+                })
 
                 if (!existingCategory) {
                     // Create new category
                     const newCategory = new AmfiCategory({
                         name: trimmedName,
-                        status: 'unset' // Default status as per schema
+                        status: 'unset', // Default status as per schema
                     })
 
                     await newCategory.save()
@@ -38,10 +47,15 @@ async function insertAmfiCategories(amfiCategories) {
                     console.log(`✅ Created AMFI Category: ${trimmedName}`)
                 } else {
                     existingCount++
-                    console.log(`⏭️ AMFI Category already exists: ${trimmedName}`)
+                    console.log(
+                        `⏭️ AMFI Category already exists: ${trimmedName}`
+                    )
                 }
             } catch (error) {
-                console.error(`❌ Error processing category "${categoryName}":`, error.message)
+                console.error(
+                    `❌ Error processing category "${categoryName}":`,
+                    error.message
+                )
                 errors.push({ category: categoryName, error: error.message })
             }
         }
@@ -50,17 +64,16 @@ async function insertAmfiCategories(amfiCategories) {
             inserted: insertedCount,
             existing: existingCount,
             total: insertedCount + existingCount,
-            errors: errors.length > 0 ? errors : undefined
+            errors: errors.length > 0 ? errors : undefined,
         }
 
         console.log(`🎉 AMFI Categories processing completed:`)
-        
+
         if (errors.length > 0) {
             console.log(`  - Errors: ${errors.length}`)
         }
 
         return result
-
     } catch (error) {
         console.error('❌ Error inserting AMFI categories:', error)
         throw error

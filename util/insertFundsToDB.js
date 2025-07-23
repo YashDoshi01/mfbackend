@@ -1,5 +1,5 @@
 import pLimit from 'p-limit'
-import MutualFund from '../models/mf.model.js'
+import MutualFund from '../models/mutualFundModels.js'
 
 async function insertFundsToDB(funds) {
     if (funds.length === 0) {

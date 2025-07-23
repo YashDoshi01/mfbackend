@@ -1,5 +1,5 @@
 import express from 'express'
-import { listMutualFunds, getStats, addCategory } from '../controller/mf.controller.js'
+import { listMutualFunds, getStats, addCategory } from '../../controller/mutualFundController.js'
 
 const mfRoute = express.Router()
 

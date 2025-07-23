@@ -1,4 +1,4 @@
-import { AssetClass } from '../../models/category.model.js'
+import { AssetClass } from '../models/categoryModels.js'
 
 async function listAssetClasses(req, res) {
     try {

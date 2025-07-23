@@ -1,4 +1,4 @@
-import MutualFund from '../models/mf.model.js'
+import MutualFund from '../models/mutualFundModels.js'
 
 async function listMutualFunds(req, res) {
     try {

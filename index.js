@@ -6,12 +6,12 @@ import cors from 'cors'
 dotenv.config()
 
 import connectDB from './config/db.js'
-import mfRoute from './routes/mf.route.js'
-import categoryRoute from './routes/category.route.js'
+import mfRoute from './routes/v1/mutualFundRoute.js'
+import categoryRoute from './routes/v1/categoryRoute.js'
 import insertFundsToDB from './util/insertFundsToDB.js'
 import insertAmfiCategories from './util/insertCategoryToDB.js'
 import fetchMFData from './util/fetchMFData.js'
-import populateCategories from './helper/categoryInDB.helper.js'
+import populateCategories from './helper/categoryInDBHelper.js'
 
 const app = express()
 
