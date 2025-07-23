@@ -1,4 +1,4 @@
-import { Route } from '../../models/category.model.js'
+import { Route, AssetClass } from '../../models/category.model.js'
 
 async function listRoutes(req, res) {
     try {
@@ -6,11 +6,34 @@ async function listRoutes(req, res) {
         const limit = parseInt(req.query.limit) || 10
         const search = req.query.search || ''
         const skip = (page - 1) * limit
-
+        const assetClassName = req.query.assetClass || ''
         const query = {}
 
+        // Filter by asset class name if provided
+        if (assetClassName) {
+            const assetClass = await AssetClass.findOne({
+                name: assetClassName,
+            })
+            if (assetClass) {
+                query.assetClassID = assetClass._id
+            } else {
+                // If asset class name doesn't exist, return empty result
+                return res.json({
+                    routes: [],
+                    pagination: {
+                        currentPage: page,
+                        totalPages: 0,
+                        totalItems: 0,
+                        itemsPerPage: limit,
+                        hasNextPage: false,
+                        hasPrevPage: false,
+                    },
+                })
+            }
+        }
+
         if (search) {
-            const regex = new RegExp(search, 'i') 
+            const regex = new RegExp(search, 'i')
             query.$or = [{ name: regex }, { assetClass: regex }]
         }
 
@@ -38,10 +61,42 @@ async function listRoutes(req, res) {
     }
 }
 
+async function allRoutes(req, res) {
+    try {
+        const search = req.query.search || ''
+        const assetClassName = req.query.assetClass || ''
+        const query = {}
+
+        // Filter by asset class name if provided
+        if (assetClassName) {
+            const assetClass = await AssetClass.findOne({
+                name: assetClassName,
+            })
+            if (assetClass) {
+                query.assetClassID = assetClass._id
+            } else {
+                // If asset class name doesn't exist, return empty result
+                return res.json([])
+            }
+        }
+
+        if (search) {
+            const regex = new RegExp(search, 'i')
+            query.$or = [{ name: regex }, { assetClass: regex }]
+        }
+
+        const routes = await Route.find(query).sort({ name: 1 })
+        res.json(routes)
+    } catch (error) {
+        console.error('Error fetching routes:', error)
+        res.status(500).json({ error: 'Internal server error' })
+    }
+}
+
 async function fetchRoutesById(req, res) {
     try {
         const { id } = req.params
-        if (!id) {
+        if (!id || !id.trim() || id.length !== 24) {
             return res.status(400).json({ error: 'Route ID is required' })
         }
         const route = await Route.findById(id)
@@ -58,7 +113,7 @@ async function fetchRoutesById(req, res) {
 async function fetchRoutesByAssetClassId(req, res) {
     try {
         const { id } = req.params
-        if (!id) {
+        if (!id || !id.trim() || id.length !== 24) {
             return res.status(400).json({ error: 'Asset class ID is required' })
         }
 
@@ -124,7 +179,7 @@ async function addRoute(req, res) {
 async function updateRoute(req, res) {
     try {
         const { id } = req.params
-        if (!id) {
+        if (!id || !id.trim() || id.length !== 24) {
             return res.status(400).json({ error: 'Route ID is required' })
         }
         const { name, assetClassID, assetClass } = req.body
@@ -151,7 +206,7 @@ async function updateRoute(req, res) {
 async function deleteRoute(req, res) {
     try {
         const { id } = req.params
-        if (!id) {
+        if (!id || !id.trim() || id.length !== 24) {
             return res.status(400).json({ error: 'Route ID is required' })
         }
         const deletedRoute = await Route.findByIdAndDelete(id)
@@ -167,6 +222,7 @@ async function deleteRoute(req, res) {
 
 export {
     addRoute,
+    allRoutes,
     fetchRoutesById,
     fetchRoutesByAssetClassId,
     listRoutes,

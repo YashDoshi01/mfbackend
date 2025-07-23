@@ -1,4 +1,45 @@
-import { InstrumentCategory } from '../../models/category.model.js'
+import {
+    InstrumentCategory,
+    AmfiCategory,
+} from '../../models/category.model.js'
+
+async function allInstrumentCategories(req, res) {
+    try {
+        const search = req.query.search || ''
+        const assetClass = req.query.assetClass || ''
+        const route = req.query.route || ''
+        const query = {}
+
+        // Add asset class filter if provided
+        if (assetClass) {
+            query.assetClass = assetClass
+        }
+
+        // Add route filter if provided
+        if (route) {
+            query.route = route
+        }
+
+        // Add search functionality
+        if (search) {
+            const regex = new RegExp(search, 'i')
+            query.$or = [
+                { name: regex },
+                { assetClass: regex },
+                { route: regex },
+                { amfiCategory: regex },
+            ]
+        }
+
+        const categories = await InstrumentCategory.find(query).sort({
+            name: 1,
+        })
+        res.json(categories)
+    } catch (error) {
+        console.error('Error fetching instrument categories:', error)
+        res.status(500).json({ error: 'Internal server error' })
+    }
+}
 
 async function listInstrumentCategories(req, res) {
     try {
@@ -6,11 +47,23 @@ async function listInstrumentCategories(req, res) {
         const limit = parseInt(req.query.limit) || 10
         const search = req.query.search || ''
         const skip = (page - 1) * limit
-
+        const assetClass = req.query.assetClass || ''
+        const route = req.query.route || ''
         const query = {}
 
+        // Add asset class filter if provided
+        if (assetClass) {
+            query.assetClass = assetClass
+        }
+
+        // Add route filter if provided
+        if (route) {
+            query.route = route
+        }
+
+        // Add search functionality
         if (search) {
-            const regex = new RegExp(search, 'i') 
+            const regex = new RegExp(search, 'i')
             query.$or = [
                 { name: regex },
                 { assetClass: regex },
@@ -49,7 +102,7 @@ async function listInstrumentCategories(req, res) {
 async function fetchInstrumentCategoryById(req, res) {
     try {
         const { id } = req.params
-        if (!id) {
+        if (!id || id.trim() === '' || id.length !== 24) {
             return res.status(400).json({ error: 'Category ID is required' })
         }
         const category = await InstrumentCategory.findById(id)
@@ -122,7 +175,7 @@ async function fetchInstrumentCategoriesByAssetClass(req, res) {
 async function fetchInstrumentCategoriesByRouteId(req, res) {
     try {
         const { id } = req.params
-        if (!id) {
+        if (!id || id.trim() === '' || id.length !== 24) {
             return res.status(400).json({ error: 'Route ID is required' })
         }
 
@@ -176,7 +229,7 @@ async function fetchInstrumentCategoriesByRouteId(req, res) {
 
 async function addInstrumentCategory(req, res) {
     try {
-        const { name, assetClass, routeID, route, range } = req.body
+        let { name, assetClass, routeID, route, range } = req.body
         if (!name) {
             return res.status(400).json({ error: 'Category name is required' })
         }
@@ -203,15 +256,16 @@ async function addInstrumentCategory(req, res) {
         res.status(201).json(newCategory)
     } catch (error) {
         console.error('Error adding category:', error)
-        res.status(500).json({ error: 'Internal server error' })
+        res.status(501).json({ error: 'Internal server error' })
     }
 }
 
 async function updateInstrumentCategory(req, res) {
+    console.log('Updating instrument category')
     try {
         const { id } = req.params
-        const { name, assetClass, routeID, route, range } = req.body
-        if (!id) {
+        let { name, assetClass, routeID, route, range } = req.body
+        if (!id || id.trim() === '' || id.length !== 24) {
             return res.status(400).json({ error: 'Category ID is required' })
         }
         if (!name) {
@@ -244,8 +298,21 @@ async function updateInstrumentCategory(req, res) {
 async function deleteInstrumentCategory(req, res) {
     try {
         const { id } = req.params
-        if (!id) {
+        if (!id || id.trim() === '' || id.length !== 24) {
             return res.status(400).json({ error: 'Category ID is required' })
+        }
+        const assignedAmfiCategories = await AmfiCategory.find({
+            instrumentCategorySchema: id,
+        })
+
+        if (assignedAmfiCategories.length > 0) {
+            return res.status(400).json({
+                error: 'Cannot delete instrument category. It is assigned to one or more AMFI categories.',
+                assignedCategories: assignedAmfiCategories.map((cat) => ({
+                    id: cat._id,
+                    name: cat.name,
+                })),
+            })
         }
         const deletedCategory = await InstrumentCategory.findByIdAndDelete(id)
         if (!deletedCategory) {
@@ -266,4 +333,5 @@ export {
     fetchInstrumentCategoriesByRouteId,
     updateInstrumentCategory,
     deleteInstrumentCategory,
+    allInstrumentCategories
 }

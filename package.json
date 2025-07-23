@@ -15,6 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "ag-grid-enterprise": "^34.0.2",
     "axios": "^1.10.0",
     "cors": "^2.8.5",
     "csv-parse": "^6.0.0",

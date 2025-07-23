@@ -2,6 +2,7 @@ import express from 'express'
 
 import {
     listAssetClasses,
+    allAssetClasses,
     fetchAssetClassById,
     addAssetClass,
     updateAssetClass,
@@ -10,9 +11,11 @@ import {
     fetchRoutesById,
     fetchRoutesByAssetClassId,
     listRoutes,
+    allRoutes,
     updateRoute,
     deleteRoute,
     listInstrumentCategories,
+    allInstrumentCategories,
     addInstrumentCategory,
     fetchInstrumentCategoryById,
     fetchInstrumentCategoriesByAssetClass,
@@ -20,12 +23,13 @@ import {
     updateInstrumentCategory,
     deleteInstrumentCategory,
     listAmfiCategories,
+    allAmfiCategories,
     getAmfiCategoryById,
     addAmfiCategory,
     updateAmfiCategoryStatus,
     linkInstrumentCategoryToAmfiCategory,
     updateAmfiCategory,
-    deleteAmfiCategory
+    deleteAmfiCategory,
 } from '../controller/category/index.js'
 
 const categoryRoute = express.Router()
@@ -33,6 +37,7 @@ const categoryRoute = express.Router()
 categoryRoute.get('/', (req, res) => res.send('Hello from Categories'))
 
 categoryRoute.get('/list-asset-classes', listAssetClasses)
+categoryRoute.get('/asset-classes/all', allAssetClasses)
 categoryRoute.get('/asset-classes/:id', fetchAssetClassById)
 
 categoryRoute.post('/add-asset-class', addAssetClass)
@@ -40,6 +45,7 @@ categoryRoute.put('/update-asset-class/:id', updateAssetClass)
 categoryRoute.delete('/delete-asset-class/:id', deleteAssetClass)
 
 categoryRoute.get('/list-routes', listRoutes)
+categoryRoute.get('/routes/all', allRoutes)
 categoryRoute.get('/routes/:id', fetchRoutesById)
 categoryRoute.get('/routes/asset-class/:id', fetchRoutesByAssetClassId)
 
@@ -48,6 +54,7 @@ categoryRoute.put('/update-route/:id', updateRoute)
 categoryRoute.delete('/delete-route/:id', deleteRoute)
 
 categoryRoute.get('/list-instrument-categories', listInstrumentCategories)
+categoryRoute.get('/instrument-categories/all', allInstrumentCategories)
 categoryRoute.get('/instrument-categories/:id', fetchInstrumentCategoryById)
 categoryRoute.get('/instrument-categories/asset-class/:name', fetchInstrumentCategoriesByAssetClass)
 categoryRoute.get('/instrument-categories/route/:id', fetchInstrumentCategoriesByRouteId)
@@ -57,6 +64,7 @@ categoryRoute.put('/update-instrument-category/:id', updateInstrumentCategory)
 categoryRoute.delete('/delete-instrument-category/:id', deleteInstrumentCategory)
 
 categoryRoute.get('/list-amfi-categories', listAmfiCategories)
+categoryRoute.get('/amfi-categories/all', allAmfiCategories)
 categoryRoute.get('/amfi-categories/:id', getAmfiCategoryById)
 categoryRoute.post('/add-amfi-category', addAmfiCategory)
 categoryRoute.put('/update-amfi-category/:id', updateAmfiCategory)

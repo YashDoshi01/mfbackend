@@ -13,7 +13,9 @@ async function listAmfiCategories(req, res) {
         let pipeline = []
 
         if (search) {
-            const regex = new RegExp(search, 'i')
+            // Escape special regex characters including parentheses
+            const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const regex = new RegExp(escapedSearch, 'i')
 
             // Use aggregation pipeline to search category name, mutual fund names, and ISIN
             pipeline = [
@@ -76,7 +78,9 @@ async function listAmfiCategories(req, res) {
         // Get total count for pagination
         let countPipeline = []
         if (search) {
-            const regex = new RegExp(search, 'i')
+            // Use the same escaped search for count pipeline
+            const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const regex = new RegExp(escapedSearch, 'i')
             countPipeline = [
                 {
                     $lookup: {
@@ -102,8 +106,8 @@ async function listAmfiCategories(req, res) {
         }
 
         const [categories, totalResult] = await Promise.all([
-            AmfiCategory.aggregate(pipeline),
-            AmfiCategory.aggregate(countPipeline),
+            AmfiCategory.aggregate(pipeline, { allowDiskUse: true }),
+            AmfiCategory.aggregate(countPipeline, { allowDiskUse: true }),
         ])
 
         const total = totalResult.length > 0 ? totalResult[0].total : 0
@@ -121,14 +125,91 @@ async function listAmfiCategories(req, res) {
             },
         })
     } catch (error) {
+        console.error('Error fetching AMFI categories:', error)
         res.status(500).json({ error: 'Internal server error' })
     }
 }
 
+
+
+async function allAmfiCategories(req, res) {
+    try {
+        const search = req.query.search || ''
+        
+        let pipeline = []
+
+        if (search) {
+            // Escape special regex characters including parentheses
+            const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const regex = new RegExp(escapedSearch, 'i')
+
+            // Use aggregation pipeline to search category name, mutual fund names, and ISIN
+            pipeline = [
+                {
+                    $lookup: {
+                        from: 'mutualfunds',
+                        localField: '_id',
+                        foreignField: 'amfiCategory',
+                        as: 'mutualFunds',
+                    },
+                },
+                {
+                    $match: {
+                        $or: [
+                            { name: regex }, // Search in AMFI category name
+                            { 'mutualFunds.name': regex }, // Search in mutual fund names
+                            { 'mutualFunds.isin': regex }, // Search in ISIN numbers
+                        ],
+                    },
+                },
+                {
+                    $project: {
+                        _id: 1,
+                        name: 1,
+                        status: 1,
+                        instrumentCategorySchema: 1,
+                        fundCount: { $size: '$mutualFunds' }, // Optional: include fund count
+                    },
+                },
+                { $sort: { name: 1 } },
+            ]
+        } else {
+            // No search, use simple find
+            pipeline = [
+                {
+                    $lookup: {
+                        from: 'mutualfunds',
+                        localField: '_id',
+                        foreignField: 'amfiCategory',
+                        as: 'mutualFunds',
+                    },
+                },
+                {
+                    $project: {
+                        _id: 1,
+                        name: 1,
+                        status: 1,
+                        instrumentCategorySchema: 1,
+                        fundCount: { $size: '$mutualFunds' },
+                    },
+                },
+                { $sort: { name: 1 } },
+            ]
+        }
+
+        const categories = await AmfiCategory.aggregate(pipeline, { allowDiskUse: true })
+        res.status(200).json(categories)
+    } catch (error) {
+        console.error('Error fetching all AMFI categories:', error)
+        res.status(500).json({ error: 'Internal server error' })
+    }
+}
+
+
 async function getAmfiCategoryById(req, res) {
     try {
         const { id } = req.params
-        if (!id) {
+        if (!id || !id.trim() || id.length !== 24) {
             throw new Error('AMFI Category ID is required')
         }
         const category = await AmfiCategory.findById(id)
@@ -184,6 +265,7 @@ async function updateAmfiCategoryStatus(req, res) {
 }
 
 async function linkInstrumentCategoryToAmfiCategory(req, res) {
+    console.log(req.body)
     try {
         const { instrumentCategoryId, amfiCategoryId } = req.body
         if (!instrumentCategoryId || !amfiCategoryId) {
@@ -203,9 +285,9 @@ async function linkInstrumentCategoryToAmfiCategory(req, res) {
             throw new Error('AMFI Category not found')
         }
 
-        instrumentCategory.amfiCategory = amfiCategory._id
-        instrumentCategory.status = 'set'
-        await instrumentCategory.save()
+        amfiCategory.instrumentCategorySchema = instrumentCategory._id
+        amfiCategory.status = 'set'
+        await amfiCategory.save()
         res.status(200).json({
             message: 'Instrument Category linked to AMFI Category successfully',
         })
@@ -216,7 +298,7 @@ async function linkInstrumentCategoryToAmfiCategory(req, res) {
 
 async function updateAmfiCategory(req, res) {
     const { id, name } = req.body
-    if (!id || !name) {
+    if (!id || !id.trim() || id.length !== 24 || !name || name.trim() === '') {
         return res.status(400).json({ error: 'ID and name are required' })
     }
     try {
@@ -237,7 +319,7 @@ async function updateAmfiCategory(req, res) {
 
 async function deleteAmfiCategory(req, res) {
     const { id } = req.params
-    if (!id) {
+    if (!id || !id.trim() || id.length !== 24) {
         return res.status(400).json({ error: 'ID is required' })
     }
     try {
@@ -253,6 +335,7 @@ async function deleteAmfiCategory(req, res) {
 
 export {
     listAmfiCategories,
+    allAmfiCategories,
     getAmfiCategoryById,
     addAmfiCategory,
     updateAmfiCategoryStatus,

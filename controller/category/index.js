@@ -1,5 +1,6 @@
 export {
     listInstrumentCategories,
+    allInstrumentCategories,
     addInstrumentCategory,
     fetchInstrumentCategoryById,
     fetchInstrumentCategoriesByAssetClass,
@@ -10,6 +11,7 @@ export {
 
 export {
     addRoute,
+    allRoutes,
     fetchRoutesById,
     fetchRoutesByAssetClassId,
     listRoutes,
@@ -19,6 +21,7 @@ export {
 
 export {
     addAssetClass,
+    allAssetClasses,
     listAssetClasses,
     fetchAssetClassById,
     updateAssetClass,
@@ -27,6 +30,7 @@ export {
 
 export {
     listAmfiCategories,
+    allAmfiCategories,
     getAmfiCategoryById,
     addAmfiCategory,
     updateAmfiCategoryStatus,

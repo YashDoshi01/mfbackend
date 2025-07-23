@@ -38,10 +38,28 @@ async function listAssetClasses(req, res) {
     }
 }
 
+async function allAssetClasses(req, res) {
+    try {
+        const search = req.query.search || ''
+        const query = {}
+
+        if (search) {
+            const regex = new RegExp(search, 'i')
+            query.name = regex
+        }
+
+        const assetClasses = await AssetClass.find(query).sort({ name: 1 })
+        res.json(assetClasses)
+    } catch (error) {
+        console.error('Error fetching asset classes:', error)
+        res.status(500).json({ error: 'Internal server error' })
+    }
+}
+
 async function fetchAssetClassById(req, res) {
     try {
         const { id } = req.params
-        if (!id) {
+        if (!id || !id.trim() || id.length !== 24) {
             return res.status(400).json({ error: 'Asset class ID is required' })
         }
         const assetClass = await AssetClass.findById(id)
@@ -76,7 +94,7 @@ async function updateAssetClass(req, res) {
     try {
         const { id } = req.params
         const { name } = req.body
-        if (!id) {
+        if (!id || !id.trim() || id.length !== 24) {
             return res.status(400).json({ error: 'Asset class ID is required' })
         }
         if (!name) {
@@ -102,7 +120,7 @@ async function updateAssetClass(req, res) {
 async function deleteAssetClass(req, res) {
     try {
         const { id } = req.params
-        if (!id) {
+        if (!id || !id.trim() || id.length !== 24) {
             return res.status(400).json({ error: 'Asset class ID is required' })
         }
         const deletedAssetClass = await AssetClass.findByIdAndDelete(id)
@@ -119,6 +137,7 @@ async function deleteAssetClass(req, res) {
 export {
     addAssetClass,
     listAssetClasses,
+    allAssetClasses,
     fetchAssetClassById,
     updateAssetClass,
     deleteAssetClass,

@@ -199,6 +199,7 @@ async function populateCategories() {
                     const newRoute = new Route({
                         name: route.name,
                         assetClassID: assetClassID,
+                        assetClass: route.assetClassName,
                     })
                     await newRoute.save()
                     console.log(
@@ -260,12 +261,18 @@ async function populateCategories() {
                         }
 
                         // Only add range if it exists and is properly defined
-                        if (category.range && typeof category.range === 'object' && 
-                            (typeof category.range.min === 'number' || typeof category.range.max === 'number')) {
+                        if (
+                            category.range &&
+                            typeof category.range === 'object' &&
+                            (typeof category.range.min === 'number' ||
+                                typeof category.range.max === 'number')
+                        ) {
                             newCategoryData.range = category.range
                         }
 
-                        const newCategory = new InstrumentCategory(newCategoryData)
+                        const newCategory = new InstrumentCategory(
+                            newCategoryData
+                        )
                         await newCategory.save()
                         console.log(
                             `✅ Created Instrument Category: ${category.name} (${category.routeName} - ${category.assetClassName})`
